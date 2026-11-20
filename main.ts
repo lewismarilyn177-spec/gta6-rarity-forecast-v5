@@ -224,12 +224,32 @@ function processCase(inputPath: string, outputPath: string): void {
       const floorY = logit(floorRate);
       if (floorY > yT) yT = floorY;
 
+      // Guard: fewer than 2 distinct points -> persistence with sigma = 0.70
+      if (nPoints < 2) {
+        const tier = trophies[i].tier;
+        let sigma = 0.70;
+        if (tier === "platinum" || tier === "gold") sigma += 0.08;
+        else if (tier === "bronze") sigma -= 0.04;
+        sigma = clamp(sigma, 0.30, 1.10);
+        const q = Z.map(z => {
+          const val = invLogit(lastY + z * sigma);
+          return Math.round(val * 10000) / 10000;
+        });
+        for (let j = 1; j < 5; j++) if (q[j] < q[j - 1]) q[j] = q[j - 1];
+        result.push({ id: trophies[i].id, q });
+        continue;
+      }
+
       // Spread
       let res = 0.15;
       if (nPoints >= 3 && b_i !== null) {
         res = Math.min(0.35, 1.5 * rmsResidual(xs, ys, b_i));
       }
       let sigma = 0.30 + 0.35 * Math.log(1 + du / 2) + res;
+      // Tier adjustment
+      const tier = trophies[i].tier;
+      if (tier === "platinum" || tier === "gold") sigma += 0.08;
+      else if (tier === "bronze") sigma -= 0.04;
       sigma = clamp(sigma, 0.30, 1.10);
 
       const q = Z.map(z => {
